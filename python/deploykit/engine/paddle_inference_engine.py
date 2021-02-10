@@ -15,12 +15,19 @@
 import os
 import os.path as osp
 
-from deploykit.common.blob import DataBlob
+from deploykit.common import DataBlob
 from .engine_config import PaddleInferenceConfig
 
 
 class PaddleInferenceEngine(object):
     def __init__(self, model_dir, engine_config):
+        import paddle
+        from paddle import fluid
+        try:
+            paddle.enable_static()
+        except:
+            pass
+
         if not osp.exists(model_dir):
             raise ValueError(
                 "model_dir {} does not exist, please set a right path".format(
@@ -31,11 +38,6 @@ class PaddleInferenceEngine(object):
                 "Type of engine_config should be PaddleInferenceConfig, but recieved is {}".
                 format(type(engine_config)))
         self.engine_config = engine_config
-        import paddle.fluid as fluid
-        try:
-            paddle.enable_static()
-        except:
-            pass
         self.precision_dict = {
             0: fluid.core.AnalysisConfig.Precision.Float32,
             1: fluid.core.AnalysisConfig.Precision.Half,
@@ -44,6 +46,13 @@ class PaddleInferenceEngine(object):
         self.create_predictor()
 
     def create_predictor(self):
+        import paddle
+        from paddle import fluid
+        try:
+            paddle.enable_static()
+        except:
+            pass
+
         config = fluid.core.AnalysisConfig(
             os.path.join(self.model_dir, '__model__'),
             os.path.join(self.model_dir, '__params__'))
@@ -76,7 +85,7 @@ class PaddleInferenceEngine(object):
             config.disable_memory_optim()
         config.switch_ir_optim(self.engine_config.use_ir_optim)
         config.switch_use_feed_fetch_ops(False)
-        config.switch_specify_inputnames(True)
+        config.switch_specify_input_names(True)
         self.predictor = fluid.core.create_paddle_predictor(config)
 
     def infer(self, inputs):
@@ -91,10 +100,9 @@ class PaddleInferenceEngine(object):
         outputs = list()
         for name in output_names:
             output_tensor = self.predictor.get_output_tensor(name)
-            output_tensor_lod = output_tensor.lod()
             output_data_blob = DataBlob()
             output_data_blob.name = name
             output_data_blob.data = output_tensor.copy_to_cpu()
-            output_data_blob.lod = output_tensor_lod
+            output_data_blob.lod = output_tensor.lod()
             outputs.append(output_data_blob)
         return outputs

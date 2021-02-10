@@ -17,7 +17,7 @@ import os.path as osp
 import yaml
 from collections import OrderedDict
 
-from .ppdet_config_parser import parse_ppdet_config
+from .ppdet_config_parse import parse_ppdet_config
 
 
 class ConfigParser(object):

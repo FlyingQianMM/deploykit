@@ -12,11 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+try:
+    from collections.abc import Sequence
+except Exception:
+    from collections import Sequence
+import numpy as np
+
 from deploykit.common.config import ConfigParser
+import deploykit.common.transform as T
 from deploykit.common.transform import Padding
 
 
-class BasePreprocess(object):
+class BasePreprocessor(object):
     def __init__(self, config):
         if not isinstance(config, ConfigParser):
             raise TypeError(
@@ -34,7 +41,7 @@ class BasePreprocess(object):
 
         if len(op_info_list) < 1:
             raise ValueError(
-                "The lenght of op_info_list should not be less than 1, but recieved is {}".
+                "The length of op_info_list should not be less than 1, but recieved is {}".
                 format(len(op_info_list)))
 
         self.transforms = list()

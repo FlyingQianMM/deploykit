@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from deploykit.common.config import ConfigParser
+from deploykit.common import ConfigParser
 
 
 class Coordinate(object):
     def __init__(self):
         self.xmin = None
         self.ymin = None
+        self.xmax = None
+        self.ymax = None
         self.width = None
         self.height = None
 
@@ -69,19 +71,20 @@ class DetPostprocessor(object):
             raise TypeError(
                 "Type of config must be ConfigParser, but recieved is {}".
                 format(type(config)))
-        self.config = config.config
-        self.architecture = self.config['model_name']
-        self.labels = self.config['labels']
+        self.architecture = config.config['model_name']
+        self.labels = config.config['labels']
         self.catid2label = dict(
             {i: self.labels[i]
              for i in range(len(self.labels))})
-        if 'resolution' in self.config and self.config['resolution'] > 0:
+        if 'mask_resolution' in config.config and config.config[
+                'mask_resolution'] > 0:
             import pycocotools.mask as mask_util
+            self.mask_resolution = config.config['mask_resolution']
 
     def offset_to_lengths(self, lod):
         offset = lod[0]
         lengths = [offset[i + 1] - offset[i] for i in range(len(offset) - 1)]
-        return [lengths]
+        return lengths
 
     def get_binary_mask(self, mask, bbox, im_shape, thresh_binarize=0.5):
         xmin, ymin, xmax, ymax = bbox
@@ -110,15 +113,15 @@ class DetPostprocessor(object):
 
     def postprocess(self,
                     bbox_blob,
-                    mask_blob,
                     shape_info,
+                    mask_blob=None,
                     thresh_binaraize=0.5):
+        det_results = (DetResult(), ) * len(shape_info)
         from functools import reduce
         if reduce(lambda x, y: x * y,
                   bbox_blob.data.shape) < 6 or bbox_blob.data is None:
-            continue
+            return det_results
 
-        det_results = (DetResult(), ) * len(shape_info)
         lengths = self.offset_to_lengths(bbox_blob.lod)
         start_bbox_id = 0
         for im_id in range(len(lengths)):
@@ -129,46 +132,43 @@ class DetPostprocessor(object):
                                           bbox_num][:, 0:2]
             if mask_blob is not None:
                 mask = mask_blob.data[start_bbox_id:start_bbox_id + bbox_num]
-                scale = (self.config['resolution'] + 2.0
-                         ) / self.config['resolution']
+                scale = (self.mask_resolution + 2.0) / self.mask_resolution
                 expand_bbox = expand_boxes(bbox, scale).astype(np.int32)
                 padded_mask = np.zeros(
-                    (self.config['resolution'] + 2,
-                     self.config['resolution'] + 2),
+                    (self.mask_resolution + 2, self.mask_resolution + 2),
                     dtype=np.float32)
             start_bbox_id += bbox_num
 
             for i in range(bbox_num):
-                bbox = Bbox()
                 xmin, ymin, xmax, ymax = bbox[i]
                 catid, score = catid_scores[i]
                 width = xmax - xmin + 1
                 height = ymax - ymin + 1
 
-                bbox.coordinate.xmin = xmin
-                bbox.coordinate.ymin = ymin
-                bbox.coordinate.width = width
-                bbox.coordinate.height = height
-                bbox.category_id = catid
-                bbox.category = self.catid2label[catid]
-                bbox.score = score
+                bbox_object = Bbox()
+                bbox_object.coordinate.xmin = xmin
+                bbox_object.coordinate.ymin = ymin
+                bbox_object.coordinate.xmax = xmax
+                bbox_object.coordinate.ymax = ymax
+                bbox_object.coordinate.width = width
+                bbox_object.coordinate.height = height
+                bbox_object.category_id = catid
+                bbox_object.category = self.catid2label[catid]
+                bbox_object.score = score
 
                 if mask_blob is not None:
                     padded_mask[1:-1, 1:-1] = mask[i, catid, :, :]
-                    bbox.mask = self.get_binary_mask(
+                    bbox_object.mask = self.get_binary_mask(
                         padded_mask, expand_bbox[i],
                         shape_info[im_id]['Origin'])
 
-                det_results[im_id].bboxes.append(bbox)
+                det_results[im_id].bboxes.append(bbox_object)
         return det_results
 
     def __call__(self, outputs, shape_info_list):
-        bbox_blob = None
+        bbox_blob = outputs[0]
         mask_blob = None
-        for output in outputs:
-            if output.name == 'bbox':
-                bbox_blob = output
-            if output.name == 'mask':
-                mask_blob = output
-        det_results = self.postprocess(bbox_blob, mask_blob, shape_info_list)
+        if hasattr(self, 'mask_resolution'):
+            mask_blob = outputs[1]
+        det_results = self.postprocess(bbox_blob, shape_info_list, mask_blob)
         return det_results

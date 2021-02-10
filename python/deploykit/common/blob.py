@@ -25,15 +25,18 @@ class DataBlob(object):
 
 class ShapeInfo(object):
     def __init__(self):
-        self.shape = OrderDict()
+        self.shape = OrderedDict()
 
     def set_origin_shape(self, height, width):
         self.shape['Origin'] = (width, height)
 
+    def get_origin_shape(self):
+        return self.shape['Origin']
+
     def get_last_shape(self):
         if len(self.shape) > 0:
-            last_op_name = list(shape_info.keys())[-1]
-            last_shape = shape_info[last_op_name]
+            last_op_name = list(self.shape.keys())[-1]
+            last_shape = self.shape[last_op_name]
             return last_shape
         else:
             raise Exception(

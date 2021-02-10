@@ -35,7 +35,9 @@ def parse_ppdet_config(cfg_file):
         raise Exception(
             "Failed to find `label_list` in the recieved PaddleDetection yaml file."
         )
-    config["lables"] = yaml_dict["label_list"]
+    config["labels"] = yaml_dict["label_list"]
+    if 'mask_resolution' in yaml_dict:
+        config['mask_resolution'] = yaml_dict['mask_resolution']
 
     # Parse preprocess in paddledetection yaml file
     if "Preprocess" not in yaml_dict:
@@ -48,41 +50,45 @@ def parse_ppdet_config(cfg_file):
 
 
 def parse_preprocess(preprocess_info):
-    transforms = OrderedDict()
+    transforms = list()
+    transforms.append({'BGR2RGB': {}})
     for op_info in preprocess_info:
         op_name = op_info["type"]
         if op_name == "Normalize":
-            transforms["Normalize"] = dict()
-            transforms["Normalize"]["mean"] = op_info["mean"]
-            transforms["Normalize"]["std"] = op_info["std"]
-            transforms["Normalize"]["min_val"] = (0, ) * len(op_info["mean"])
-            transforms["Normalize"]["max_val"] = (
-                255., ) * len(op_info["mean"])
-            transforms["Normalize"]["is_scale"] = op_info["is_scale"]
+            op_attr = dict()
+            op_attr["mean"] = op_info["mean"]
+            op_attr["std"] = op_info["std"]
+            op_attr["min_val"] = [0] * len(op_info["mean"])
+            op_attr["max_val"] = [255.] * len(op_info["mean"])
+            op_attr["is_scale"] = op_info["is_scale"]
+            transforms.append({'Normalize': op_attr})
         elif op_name == "Permute":
-            transforms["Permute"] = []
+            transforms.append({'Permute': {}})
             if op_info["to_bgr"]:
-                transforms["RGB2BRG"] = []
+                transforms.append({'RGB2BRG': {}})
         elif op_name == "Resize":
             max_size = op_info["max_size"]
             if max_size != 0 and config["model_name"] in ["RCNN", "RetinaNet"]:
-                transforms["ResizeByShort"] = dict()
-                transforms["ResizeByShort"]["target_size"] = op_info[
-                    "target_size"]
-                transforms["ResizeByShort"]["max_size"] = op_info["max_size"]
-                transforms["ResizeByShort"]["interp"] = op_info["interp"]
+                op_attr = dict()
+                op_attr["target_size"] = op_info["target_size"]
+                op_attr["max_size"] = op_info["max_size"]
+                op_attr["interp"] = op_info["interp"]
+                transforms.append({'ResizeByShort': op_attr})
                 if "image_shape" in op_info:
-                    transforms["ResizeByShort"]["image_shape"] = op_info[
-                        "image_shape"]
+                    op_attr = dict()
+                    op_attr['width'] = max_size
+                    op_attr['height'] = max_size
+                    transforms.append({'Padding': op_attr})
             else:
-                transforms["Resize"] = dict()
-                transforms["Resize"]["width"] = op_info["target_size"]
-                transforms["Resize"]["height"] = op_info["target_size"]
-                transforms["Resize"]["max_size"] = op_info["max_size"]
-                transforms["Resize"]["interp"] = op_info["interp"]
+                op_attr = dict()
+                op_attr["width"] = op_info["target_size"]
+                op_attr["height"] = op_info["target_size"]
+                op_attr["interp"] = op_info["interp"]
+                transforms.append({'Resize': op_attr})
         elif op_name == "PadStride":
-            transforms["Padding"] = dict()
-            transforms["Padding"]["stride"] = op_info["stride"]
+            op_attr = dict()
+            op_attr["stride"] = op_info["stride"]
+            transforms.append({'Padding': op_attr})
         else:
             raise Exception("Cannot parse the operation {}.".format(op_name))
     return transforms

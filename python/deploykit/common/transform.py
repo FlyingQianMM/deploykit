@@ -58,7 +58,8 @@ class Normalize(Transform):
                 '[{}] There should not be 0 in std, but recieved is {}'.format(
                     self.op_name, std))
         if is_scale:
-            if reduce(lambda x, y: x * y, max_val - min_val) == 0:
+            if reduce(lambda x, y: x * y,
+                      [a - b for a, b in zip(max_val, min_val)]) == 0:
                 raise ValueError(
                     '[{}] There should not be 0 in (max_val - min_val), but recieved is {}'.
                     format(self.op_name, max_val - min_val))
@@ -75,13 +76,16 @@ class Normalize(Transform):
         self.is_scale = is_scale
 
     def __call__(self, im):
-        mean = np.array(self.mean)[np.newaxis, np.newaxis, :]
-        std = np.array(self.std)[np.newaxis, np.newaxis, :]
-        min_val = np.array(self.min_val)[np.newaxis, np.newaxis, :]
-        max_val = np.array(self.max_val)[np.newaxis, np.newaxis, :]
+        mean = np.array(self.mean)[np.newaxis, np.newaxis, :].astype(
+            np.float32)
+        std = np.array(self.std)[np.newaxis, np.newaxis, :].astype(np.float32)
+        min_val = np.array(self.min_val)[np.newaxis, np.newaxis, :].astype(
+            np.float32)
+        max_val = np.array(self.max_val)[np.newaxis, np.newaxis, :].astype(
+            np.float32)
         im -= min_val
         if self.is_scale:
-            range_val = float(max_val - min_val)
+            range_val = max_val - min_val
             im /= range_val
         im -= mean
         im /= std
@@ -94,7 +98,7 @@ class Normalize(Transform):
 
 class ResizeByShort(Transform):
     interp_list = [
-        cv2.INTER_LINEAR, cv2.INTER_NEAREST, cv2.INTER_AREA, cv2.INTER_CUBIC,
+        cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA,
         cv2.INTER_LANCZOS4
     ]
 
@@ -160,7 +164,7 @@ class ResizeByShort(Transform):
 
 class ResizeByLong(Transform):
     interp_list = [
-        cv2.INTER_LINEAR, cv2.INTER_NEAREST, cv2.INTER_AREA, cv2.INTER_CUBIC,
+        cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA,
         cv2.INTER_LANCZOS4
     ]
 
@@ -226,7 +230,7 @@ class ResizeByLong(Transform):
 
 class Resize(Transform):
     interp_list = [
-        cv2.INTER_LINEAR, cv2.INTER_NEAREST, cv2.INTER_AREA, cv2.INTER_CUBIC,
+        cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA,
         cv2.INTER_LANCZOS4
     ]
 
@@ -257,7 +261,8 @@ class Resize(Transform):
         self.interp = interp
 
     def __call__(self, im):
-        im = cv2.resize(im, (width, height), interpolation=self.interp)
+        im = cv2.resize(
+            im, (self.width, self.height), interpolation=self.interp)
         if im.ndim < 3:
             im = np.expand_dims(im, axis=-1)
         return im
@@ -313,10 +318,14 @@ class Padding(Transform):
             raise TypeError(
                 "[{}] Type of height/width/stride is invalid. Must be Integer, but recieved is {}/{}/{}"
                 .format(self.op_name, type(height), type(width), type(stride)))
-        if height < 0 or width <= 0 or stride <= 0:
+        if height < 0 or width < 0:
             raise ValueError(
-                "[{}] Height/width/stride should be greater than 0, but recieved is {}/{}/{}".
-                format(self.op_name, height, width, stride))
+                "[{}] Height/width should be not less than 0, but recieved is {}/{}".
+                format(self.op_name, height, width))
+        if stride < -1:
+            raise ValueError(
+                "[{}] Stride should be not less than -1, but recieved is {}".
+                format(self.op_name, stride))
         if not isinstance(im_value, Sequence):
             raise TypeError(
                 "[{}] Type of im_value should be list or tuple, but recieved is {}".
@@ -380,7 +389,7 @@ class Padding(Transform):
         return shape_op
 
 
-class Clip(transform):
+class Clip(Transform):
     def __init__(self, min_val, max_val):
         self.op_name = self.__class__.__name__
         if not isinstance(min_val, Sequence) and isinstance(max_val, Sequence):

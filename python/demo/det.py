@@ -65,7 +65,7 @@ def parse_args():
 def infer(args):
     parser = ConfigParser(args.cfg_file, args.pp_type)
     det_preprocess = DetPreprocessor(parser)
-    det_postprocess = DetPostProcessor(parser)
+    det_postprocess = DetPostprocessor(parser)
     engine_config = PaddleInferenceConfig()
     engine = PaddleInferenceEngine(args.model_dir, engine_config)
 
@@ -73,6 +73,15 @@ def infer(args):
     inputs, shape_info = det_preprocess([image])
     outputs = engine.infer(inputs)
     det_results = det_postprocess(outputs, shape_info)
+    for det_result in det_results:
+        for bbox in det_result.bboxes:
+            if bbox.score < 0.5:
+                continue
+            print(
+                'class_id: {}, confidence: {:.04f}, left_top:[{:.02f},{:.02f}], right_bottom:[{:.02f},{:.02f}]'.
+                format(bbox.category_id, bbox.score, bbox.coordinate.xmin,
+                       bbox.coordinate.ymin, bbox.coordinate.xmax,
+                       bbox.coordinate.ymax))
 
 
 if __name__ == '__main__':
