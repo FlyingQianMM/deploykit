@@ -24,11 +24,11 @@ class ConfigParser(object):
     def __init__(self, cfg_file, pp_type):
         if not osp.exists(cfg_file):
             raise Exception(
-                "cfg_file {} does not exist, please set the right file.".
-                format(cfg_file))
+                "cfg_file {} does not exist, please set the right file.".format(
+                    cfg_file))
         if pp_type not in ['det']:
             raise Exception(
-                "pp_type should be one of det/, but recieved type is {}".
-                format(pp_type))
+                "pp_type should be one of det/, but recieved type is {}".format(
+                    pp_type))
         if pp_type == 'det':
             self.config = parse_ppdet_config(cfg_file)

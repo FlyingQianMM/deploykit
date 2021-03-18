@@ -76,8 +76,7 @@ class Normalize(Transform):
         self.is_scale = is_scale
 
     def __call__(self, im):
-        mean = np.array(self.mean)[np.newaxis, np.newaxis, :].astype(
-            np.float32)
+        mean = np.array(self.mean)[np.newaxis, np.newaxis, :].astype(np.float32)
         std = np.array(self.std)[np.newaxis, np.newaxis, :].astype(np.float32)
         min_val = np.array(self.min_val)[np.newaxis, np.newaxis, :].astype(
             np.float32)
