@@ -126,8 +126,7 @@ class DetPostprocessor(object):
         start_bbox_id = 0
         for im_id in range(len(lengths)):
             bbox_num = lengths[im_id]
-            bbox = bbox_blob.data[start_bbox_id:start_bbox_id + bbox_num][:,
-                                                                          2:]
+            bbox = bbox_blob.data[start_bbox_id:start_bbox_id + bbox_num][:, 2:]
             catid_scores = bbox_blob.data[start_bbox_id:start_bbox_id +
                                           bbox_num][:, 0:2]
             if mask_blob is not None:
